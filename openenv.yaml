@@ -1,0 +1,6 @@
+name: "sqlite-retail-env"
+version: "0.1.0"
+description: "A real-world SQLite database sandbox for Data Engineering & SQL Agents."
+spec_version: "0.1"
+framework: "fastapi"
+port: 7860

@@ -1,0 +1,58 @@
+================================================================================
+OpenEnv SQLite Retail Sandbox - Detailed Project Documentation
+================================================================================
+
+--------------------------------------------------------------------------------
+1. PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+This project implements a fully functioning "OpenEnv" environment. OpenEnv is a standard specification designed to facilitate the training and evaluation of "Agentic" AI models. Unlike traditional Reinforcement Learning (RL) environments that simulate video games (like Atari), this environment provides a real-world software engineering sandbox: an interactive E-commerce SQLite Database.
+
+The primary goal of this project is to test if an AI agent can successfully navigate, query, and manipulate a relational database to resolve specific business data engineering tasks (like calculating total revenue or tracking pending orders) while receiving automatic grades indicating their correct progress.
+
+--------------------------------------------------------------------------------
+2. HOW IT WORKS (INTERNAL MECHANICS)
+--------------------------------------------------------------------------------
+The project architecture strictly requires defining specific boundaries and inputs for the AI to play within. We achieve this utilizing the Gym-style interaction loop exposed entirely over HTTP API paths:
+
+A. The Data Layer (`data/init.sql` & `core_env.py`)
+   - The environment simulates an e-commerce platform using tables for `users`, `categories`, `products`, `orders`, and `order_items`.
+   - Every time a new session starts, the environment parses `init.sql` and clones an entirely fresh SQLite instance (`sandbox_X.db`). This ensures that the agent cannot permanently corrupt the primary database or cheat by looking at previous runs.
+
+B. The Server Layer (`app.py`)
+   - We serve the logic identically to standard OpenEnv architecture: utilizing FastAPI. It creates a high-performance webserver running on port 7860.
+   - It listens for specific standard JSON triggers on endpoints: `/reset`, `/step`, `/state`.
+
+C. The Logic & Typing Layer (`models.py` & `tasks.py`)
+   - `models.py`: Uses Pydantic to enforce exact Schema Typing. The agent cannot send ambiguous commands. It must strictly conform to the `Action` parameter (sending a SQL query or submitting a final answer). It replies with structured `Observation` json parsing the executed query result or an Error.
+   - `tasks.py`: Encapsulates the 3 "Levels". 
+      - Easy: Calculate total sales.
+      - Medium: Manipulate active orders (UPDATE commands).
+      - Hard: Solve complex multi-JOIN relational logic.
+      Each task features a programmatic "Grader" which executes a secret query against the database to evaluate the agent's work, scoring them between 0.0 to 1.0 depending on absolute semantic and syntactic correctness.
+
+--------------------------------------------------------------------------------
+3. HOW TO RUN AND USE IT
+--------------------------------------------------------------------------------
+
+Option 1: Running the Application Locally
+1. Dependencies: First, you must install the python frameworks used. 
+   Run: `pip install -r requirements.txt`
+2. Booting the Sandbox Server: Start the background HTTP environment API.
+   Run: `uvicorn app:app --port 7860`
+   (This begins listening on localhost:7860, locking into the OpenEnv HTTP Protocol).
+
+Option 2: Deploying to Production (Hugging Face Spaces)
+Because the environment possesses an `openenv.yaml` file and a `Dockerfile`, it is universally deployable as a Serverless Sandbox. 
+1. Create a "Docker" SDK Space on Hugging Face.
+2. Commit all files exactly as they are. Docker automatically runs the server and maps the 7860 API to public domains for any Agent loop to query.
+
+Evaluating an Agent (The Client Loop)
+To verify it works, open a secondary terminal and execute the mock AI Agent script we provided:
+Run: `python inference.py`
+
+What inference.py does:
+1. Calls `/reset` to target the Easy task. It prints the instruction back to the console.
+2. Formulates the correct SQL Query payload and POSTs it to the `/step` endpoint.
+3. The server interprets the query, reads the SQLite tables, structures the result via Pandas Dataframes, and sends it back to the agent as an `Observation`.
+4. The client issues a `submit_answer` action containing the final metric. The Grader parses it, validates it against the DB, and flags `Done=True, Reward=1.0`.
+5. It repeats this identical loop seamlessly for the Medium and Hard tasks, concluding the OpenEnv lifecycle.
